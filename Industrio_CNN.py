@@ -81,7 +81,10 @@ class iCNN(nn.Module):
 
         # Fully connected layer to produce a single scalar output.
         # Using 512 channels from block5 (flattened to 512-dim).
-        self.fc = nn.Linear(512, 1)
+        self.fc = nn.Sequential(
+            nn.Linear(512, 1),
+            nn.Dropout(0.5),    # adding dropout to avoid overfitting
+        )
 
         # Sigmoid activation to map the output to a confidence score in [0, 1].
         self.sigmoid = nn.Sigmoid()

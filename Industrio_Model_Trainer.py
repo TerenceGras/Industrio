@@ -3,13 +3,15 @@ import torch
 import sys
 import torch.optim as optim
 import torch.nn as nn
+import numpy as np
+import matplotlib.pyplot as plt
 from Industrio_Data_Loader import iDataLoader
 from Industrio_CNN import iCNN
 from torch.utils.data import DataLoader
+from sklearn.metrics import precision_recall_curve, average_precision_score
 
 
 def PromptTrain():
-
     message = "🧠 LET'S TRAIN INDUSTRIO 🧠"
     border = "*" * 50
     padding = (50 - len(message) - 2) // 2  # Calculate space padding
@@ -55,6 +57,13 @@ def PromptTrain():
             print("⚠️ Invalid path. Please enter a valid directory or file path. ⚠️")
         else:
             os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+            break
+
+    while True:
+        model_name = input("Please enter the name of the model you are training: ").strip()
+        if not model_name or model_name == "":  # Check if the path is valid
+            print("⚠️ Invalid name. Please enter a valid file name. ⚠️")
+        else:
             break
 
     while True:
@@ -104,11 +113,10 @@ def PromptTrain():
             cuda = False
             break
 
-    TrainModel(train_path, val_path, checkpoint_path, epochs, batch_size, cuda)
+    TrainModel(model_name, train_path, val_path, checkpoint_path, epochs, batch_size, cuda)
 
 
-def TrainModel(_train_folder, _val_folder, _checkpoint_path, _epochs, _batch_size, _cuda):
-
+def TrainModel(_model_name, _train_folder, _val_folder, _checkpoint_path, _epochs, _batch_size, _cuda):
     # Create datasets and loaders.
     train_dataset = iDataLoader(_train_folder)
     val_dataset = iDataLoader(_val_folder)
@@ -124,8 +132,17 @@ def TrainModel(_train_folder, _val_folder, _checkpoint_path, _epochs, _batch_siz
     criterion = nn.BCELoss()
 
     # Use Adam optimizer.
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)  # adding L2 weight decay
     epoch_loss = 0.0
+
+    # Using a scheduler to reducing learning rate
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5)
+
+    # Training loop
+    final_train_loss = 0.0  # Store final training loss
+    final_val_loss = 0.0  # Store final validation loss
+    all_labels = []
+    all_preds = []
 
     # Training loop
     for epoch in range(_epochs):
@@ -142,23 +159,74 @@ def TrainModel(_train_folder, _val_folder, _checkpoint_path, _epochs, _batch_siz
             optimizer.step()
             running_loss += loss.item() * images.size(0)
 
-        epoch_loss = running_loss / len(train_dataset)
-        print(f"Epoch [{epoch + 1}/{_epochs}], Loss: {epoch_loss:.4f}")
+        final_train_loss = running_loss / len(train_dataset)
+        print(f"Epoch [{epoch + 1}/{_epochs}], Loss: {final_train_loss:.4f}")
 
         # Validation loop (optional)
         model.eval()
         val_loss = 0.0
+
         with torch.no_grad():
             for images, labels in val_loader:
                 images = images.to(device)
                 labels = labels.to(device).unsqueeze(1)
+
                 outputs = model(images)
+
                 loss = criterion(outputs, labels)
                 val_loss += loss.item() * images.size(0)
-        val_loss /= len(val_dataset)
-        print(f"Validation Loss: {val_loss:.4f}")
 
-    checkpoint_file = os.path.join(_checkpoint_path, "reference_model.pth")
+                # Store predictions and true labels for mAP calculation
+                all_labels.extend(labels.cpu().numpy())  # Convert to numpy array
+                all_preds.extend(outputs.cpu().numpy())  # Convert to numpy array
+
+        final_val_loss = val_loss / len(val_dataset)
+        scheduler.step(val_loss)  # Reduce LR if val_loss stops improving
+        print(f"Validation Loss: {final_val_loss:.4f}")
+
+    # Convert collected predictions and labels to NumPy arrays
+    all_labels = np.array(all_labels).flatten()
+    all_preds = np.array(all_preds).flatten()
+
+    # Compute Precision-Recall curve
+    precision, recall, _ = precision_recall_curve(all_labels, all_preds)
+    ap_score = average_precision_score(all_labels, all_preds)
+
+    # Plot Precision-Recall curve
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.plot(recall, precision, marker='.', label=f"AP = {ap_score:.4f}")
+    ax.set_xlabel('Recall')
+    ax.set_ylabel('Precision')
+    ax.set_title('Precision-Recall Curve')
+    ax.legend()
+    ax.grid()
+
+    # Table data with training loss, validation loss, and mAP
+    table_data = [
+        ["Training Loss", "Validation Loss", "mAP"],
+        [f"{final_train_loss:.4f}", f"{final_val_loss:.4f}", f"{ap_score:.4f}"]
+    ]
+
+    # Add table under the plot
+    table = plt.table(cellText=table_data,
+                      colLabels=None,
+                      cellLoc='center',
+                      loc='bottom',
+                      bbox=[0.0, -0.3, 1.0, 0.2])  # Position table under the plot
+
+    # Adjust layout so table doesn't overlap with the figure
+    plt.subplots_adjust(bottom=0.35)
+
+    # Save figure to checkpoint folder
+    pr_curve_path = os.path.join(_checkpoint_path, f"{_model_name}_statistics.png")
+    plt.savefig(pr_curve_path, bbox_inches='tight')
+    plt.show()
+
+    # Print final mAP score
+    print(f"Final mean Average Precision (mAP): {ap_score:.4f}")
+    print(f"Precision-Recall curve saved at: {pr_curve_path}")
+
+    checkpoint_file = os.path.join(_checkpoint_path, f"{_model_name}.pth")
 
     # Save the trained model checkpoint.
     torch.save({
