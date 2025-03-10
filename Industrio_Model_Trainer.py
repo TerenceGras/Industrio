@@ -54,11 +54,12 @@ def PromptTrain():
         if not os.path.exists(checkpoint_path):  # Check if the path is valid
             print("⚠️ Invalid path. Please enter a valid directory or file path. ⚠️")
         else:
+            os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
             break
 
     while True:
         epochs = input("Please enter the number of epochs used for training (press enter to default to 50): ").strip()
-        if epochs:
+        if epochs != "":
             try:
                 epochs = int(epochs)
                 assert isinstance(epochs, int)
@@ -73,7 +74,7 @@ def PromptTrain():
 
     while True:
         batch_size = input("Please enter the batch size used for training (press enter to default to 16): ").strip()
-        if batch_size:
+        if batch_size != "":
             try:
                 batch_size = int(batch_size)
                 assert isinstance(batch_size, int)
@@ -89,7 +90,7 @@ def PromptTrain():
 
     while True:
         cuda = input("Should we use CUDA for the training (y/n)? (press enter to default to no)").strip()
-        if cuda:
+        if cuda != "":
             if cuda == "y":
                 cuda = True
                 break
@@ -157,14 +158,16 @@ def TrainModel(_train_folder, _val_folder, _checkpoint_path, _epochs, _batch_siz
         val_loss /= len(val_dataset)
         print(f"Validation Loss: {val_loss:.4f}")
 
+    checkpoint_file = os.path.join(_checkpoint_path, "model_checkpoint.pth")
+
     # Save the trained model checkpoint.
     torch.save({
         'epoch': _epochs,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': epoch_loss,
-    }, _checkpoint_path)
-    print(f"Model checkpoint saved at {_checkpoint_path}")
+    }, checkpoint_file)
+    print(f"Model checkpoint saved at {checkpoint_file}")
 
     # cleanup
     train_dataset.DeleteItems()

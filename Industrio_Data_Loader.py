@@ -60,6 +60,6 @@ class iDataLoader(Dataset):
         return image, label
 
     def DeleteItems(self):
-        os.rmdir(os.path.join(self.temp_ok, "temp"))
-        os.rmdir(os.path.join(self.temp_nok, "temp"))
+        shutil.rmtree(os.path.join(self.temp_ok, "temp"))  # Removes folder and all contents
+        shutil.rmtree(os.path.join(self.temp_nok, "temp"))
 
