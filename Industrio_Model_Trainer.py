@@ -158,7 +158,7 @@ def TrainModel(_train_folder, _val_folder, _checkpoint_path, _epochs, _batch_siz
         val_loss /= len(val_dataset)
         print(f"Validation Loss: {val_loss:.4f}")
 
-    checkpoint_file = os.path.join(_checkpoint_path, "model_checkpoint.pth")
+    checkpoint_file = os.path.join(_checkpoint_path, "reference_model.pth")
 
     # Save the trained model checkpoint.
     torch.save({
