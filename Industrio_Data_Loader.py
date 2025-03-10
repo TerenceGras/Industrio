@@ -37,8 +37,7 @@ class iDataLoader(Dataset):
             # Remove the temp folder if it exists, then recreate it
             if os.path.exists(new_dir):
                 shutil.rmtree(new_dir)  # Deletes all contents of the folder
-            else:
-                os.makedirs(new_dir)  # Create temp directory
+            os.makedirs(new_dir)  # Create temp directory
 
             # Process images
             for img_name in os.listdir(folder_path):
