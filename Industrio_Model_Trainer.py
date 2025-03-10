@@ -132,11 +132,11 @@ def TrainModel(_model_name, _train_folder, _val_folder, _checkpoint_path, _epoch
     criterion = nn.BCELoss()
 
     # Use Adam optimizer.
-    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)  # adding L2 weight decay
+    optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=1e-5)  # adding L2 weight decay
     epoch_loss = 0.0
 
-    # Using a scheduler to reducing learning rate
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5)
+    # Using a scheduler to reduce learning rate
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=8, factor=0.9)
 
     # Training loop
     final_train_loss = 0.0  # Store final training loss
