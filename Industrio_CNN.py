@@ -83,7 +83,7 @@ class iCNN(nn.Module):
         # Using 512 channels from block5 (flattened to 512-dim).
         self.fc = nn.Sequential(
             nn.Linear(512, 1),
-            nn.Dropout(0.5),    # adding dropout to avoid overfitting
+            nn.Dropout(0.4),    # adding dropout to avoid overfitting
         )
 
         # Sigmoid activation to map the output to a confidence score in [0, 1].

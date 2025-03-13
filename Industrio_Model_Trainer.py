@@ -116,6 +116,12 @@ def PromptTrain():
     TrainModel(model_name, train_path, val_path, checkpoint_path, epochs, batch_size, cuda)
 
 
+def warmup_lambda(epoch):
+    if epoch < 5:
+        return (epoch + 1) / 5  # Linear scaling
+    return 1.0  # Keep LR constant after warmup
+
+
 def TrainModel(_model_name, _train_folder, _val_folder, _checkpoint_path, _epochs, _batch_size, _cuda):
     # Create datasets and loaders.
     train_dataset = iDataLoader(_train_folder)
@@ -132,11 +138,14 @@ def TrainModel(_model_name, _train_folder, _val_folder, _checkpoint_path, _epoch
     criterion = nn.BCELoss()
 
     # Use Adam optimizer.
-    optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=1e-5)  # adding L2 weight decay
+    optimizer = optim.AdamW(model.parameters(), lr=0.0019, weight_decay=1e-5)  # adding L2 weight decay
+    #optimizer = torch.optim.SGD(model.parameters(), lr=0.0018, momentum=0.95, nesterov=True)
     epoch_loss = 0.0
 
     # Using a scheduler to reduce learning rate
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=8, factor=0.9)
+    #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=8, factor=0.9)
+    scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=0.0005, max_lr=0.0025, step_size_up=4000,
+                                                  mode="triangular2")
 
     # Training loop
     final_train_loss = 0.0  # Store final training loss
@@ -181,7 +190,7 @@ def TrainModel(_model_name, _train_folder, _val_folder, _checkpoint_path, _epoch
                 all_preds.extend(outputs.cpu().numpy())  # Convert to numpy array
 
         final_val_loss = val_loss / len(val_dataset)
-        scheduler.step(val_loss)  # Reduce LR if val_loss stops improving
+        scheduler.step()  # Reduce LR if val_loss stops improving
         print(f"Validation Loss: {final_val_loss:.4f}")
 
     # Convert collected predictions and labels to NumPy arrays
